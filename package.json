@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.14.0",
+    "@geckos.io/client": "^3.0.2",
     "@radix-ui/react-slot": "^1.2.0",
     "@tanstack/react-query": "^5.60.5",
     "class-variance-authority": "^0.7.1",
