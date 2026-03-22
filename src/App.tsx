@@ -131,19 +131,25 @@ function CharacterCreation({ onCreate }: { onCreate: (char: { race: string; hero
     const prefab = HERO_PREFABS[prefabKey];
     if (!prefab) return;
 
-    loadGLB(prefab.modelPath).then(model => {
+    loadGLB(prefab.modelPath).then(async model => {
       const clone = model.scene.clone();
       clone.scale.setScalar(prefab.scale * 125);
       clone.traverse(c => { if ((c as THREE.Mesh).isMesh) { c.castShadow = true; } });
       state.scene.add(clone);
       state.model = clone;
 
-      // Animation
-      if (model.animations.length > 0) {
-        state.mixer = new THREE.AnimationMixer(clone);
-        const idle = model.animations.find(a => a.name.toLowerCase().includes('idle')) || model.animations[0];
-        if (idle) state.mixer.clipAction(idle).play();
+      // Load retargeted animations from the animation library
+      const entity = createAnimatedEntity({ scene: clone, animations: model.animations });
+      try {
+        await loadAnimSetForEntity(entity, heroClass || 'Warrior');
+        playAnimation(entity, 'idle');
+      } catch {
+        // Fallback: play first embedded animation
+        if (model.animations.length > 0) {
+          entity.mixer.clipAction(model.animations[0]).play();
+        }
       }
+      state.mixer = entity.mixer;
     }).catch(() => {});
   }, [race, heroClass]);
 
@@ -275,7 +281,7 @@ function GameWorld({ character }: { character: { race: string; heroClass: string
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.2;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -283,7 +289,7 @@ function GameWorld({ character }: { character: { race: string; heroClass: string
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB);
-    scene.fog = new THREE.Fog(0x87CEEB, 800, 2000);
+    scene.fog = new THREE.Fog(0x87CEEB, 1200, 2000);
 
     const camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.5, 3000);
 
@@ -297,6 +303,7 @@ function GameWorld({ character }: { character: { race: string; heroClass: string
     sun.shadow.camera.left = -60; sun.shadow.camera.right = 60;
     sun.shadow.camera.top = 60; sun.shadow.camera.bottom = -60;
     scene.add(sun);
+    scene.add(sun.target);
     scene.add(new THREE.DirectionalLight(0x4466aa, 0.3));
 
     // Ocean
@@ -386,11 +393,11 @@ function GameWorld({ character }: { character: { race: string; heroClass: string
     renderComp.group.add(new THREE.Mesh(shadowGeo, new THREE.MeshBasicMaterial({ color: 0, transparent: true, opacity: 0.3, depthWrite: false })));
 
     // ── Game Loop ───────────────────────────────────────────
-    const clock = new THREE.Clock();
+    const gameClock = new THREE.Clock();
     let animId = 0;
 
     const loop = () => {
-      const dt = Math.min(clock.getDelta(), 0.05);
+      const dt = Math.min(gameClock.getDelta(), 0.05);
       world.update(dt);
 
       const pt = player.getComponent(TransformComponent)!;
