@@ -1,0 +1,22 @@
+{
+  "name": "dungeon-crawler-game-server",
+  "version": "1.0.0",
+  "description": "Dungeon Crawler Quest — Colyseus multiplayer game server",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "@colyseus/monitor": "^0.16.7",
+    "@colyseus/ws-transport": "^0.16.5",
+    "colyseus": "^0.16.5",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "dungeon-crawler-quest": "file:..",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}

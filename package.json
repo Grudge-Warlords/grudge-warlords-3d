@@ -1,0 +1,41 @@
+{
+  "name": "grudge-warlords-3d",
+  "version": "1.0.0",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "tsc --noEmit",
+    "server": "cd game-server && node src/index.js"
+  },
+  "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.14.0",
+    "@radix-ui/react-slot": "^1.2.0",
+    "@tanstack/react-query": "^5.60.5",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "colyseus.js": "^0.16.22",
+    "lucide-react": "^0.453.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^2.6.0",
+    "tailwindcss-animate": "^1.0.7",
+    "three": "^0.183.1",
+    "wouter": "^3.3.5",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.27",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "@types/three": "^0.183.1",
+    "@vitejs/plugin-react": "^4.7.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.17",
+    "typescript": "5.6.3",
+    "vite": "^7.3.0"
+  }
+}
