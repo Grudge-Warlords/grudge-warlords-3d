@@ -187,12 +187,16 @@ export function recolorPalette(
   newTex.minFilter = THREE.NearestFilter;
   newTex.colorSpace = THREE.SRGBColorSpace;
 
-  // Apply to mesh material
+  // Apply to mesh material — works with MeshPhongMaterial (FBXLoader) and MeshStandardMaterial
   if (character.mesh?.material) {
-    const mat = Array.isArray(character.mesh.material) ? character.mesh.material[0] : character.mesh.material;
-    if ((mat as THREE.MeshStandardMaterial).isMeshStandardMaterial) {
-      (mat as THREE.MeshStandardMaterial).map = newTex;
-      (mat as THREE.MeshStandardMaterial).needsUpdate = true;
+    const applyTex = (m: THREE.Material) => {
+      (m as any).map = newTex;
+      (m as any).needsUpdate = true;
+    };
+    if (Array.isArray(character.mesh.material)) {
+      character.mesh.material.forEach(applyTex);
+    } else {
+      applyTex(character.mesh.material);
     }
   }
   character.paletteTexture = newTex;

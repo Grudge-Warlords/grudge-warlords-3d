@@ -131,22 +131,33 @@ export default function CharacterCreation({ onCreate }: CharacterCreationProps) 
     renderer: THREE.WebGLRenderer;
     scene: THREE.Scene;
     camera: THREE.PerspectiveCamera;
-    clock: THREE.Clock;
     animId: number;
     char: CharacterInstance | null;
     mixer: THREE.AnimationMixer | null;
   } | null>(null);
 
-  // ── 3D Preview Setup ───────────────────────────────────────
+  // ── 3D Preview Setup — deferred until preview is visible ────
+
+  const sceneReady = useRef(false);
 
   useEffect(() => {
     const container = previewRef.current;
-    if (!container) return;
+    if (!container || sceneReady.current) return;
 
-    const w = container.clientWidth || 600;
-    const h = container.clientHeight || 700;
+    // Don't init when container is hidden (faction step)
+    const w = container.clientWidth;
+    const h = container.clientHeight;
+    if (w < 10 || h < 10) return;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    sceneReady.current = true;
+
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    } catch (e) {
+      console.warn('[CharCreate] WebGL init failed:', e);
+      return;
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(w, h);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -187,16 +198,18 @@ export default function CharacterCreation({ onCreate }: CharacterCreationProps) 
     camera.position.set(0, 1.1, 4.2);
     camera.lookAt(0, 0.7, 0);
 
-    const clock = new THREE.Clock();
+    let lastTime = performance.now();
     const state = {
-      renderer, scene, camera, clock, animId: 0,
+      renderer, scene, camera, animId: 0,
       char: null as CharacterInstance | null,
       mixer: null as THREE.AnimationMixer | null,
     };
     sceneState.current = state;
 
     const loop = () => {
-      const dt = clock.getDelta();
+      const now = performance.now();
+      const dt = Math.min((now - lastTime) / 1000, 0.05);
+      lastTime = now;
       if (state.mixer) state.mixer.update(dt);
       if (state.char) state.char.group.rotation.y += dt * 0.3;
       renderer.render(scene, camera);
@@ -205,8 +218,9 @@ export default function CharacterCreation({ onCreate }: CharacterCreationProps) 
     state.animId = requestAnimationFrame(loop);
 
     const onResize = () => {
-      const nw = container.clientWidth || 600;
-      const nh = container.clientHeight || 700;
+      const nw = container.clientWidth;
+      const nh = container.clientHeight;
+      if (nw < 10 || nh < 10) return;
       camera.aspect = nw / nh;
       camera.updateProjectionMatrix();
       renderer.setSize(nw, nh);
@@ -218,8 +232,9 @@ export default function CharacterCreation({ onCreate }: CharacterCreationProps) 
       window.removeEventListener('resize', onResize);
       renderer.dispose();
       container.innerHTML = '';
+      sceneReady.current = false;
     };
-  }, []);
+  }, [step]); // re-run when step changes so it inits when preview becomes visible
 
   // ── Available bodies for current race ──────────────────────
 
@@ -540,11 +555,16 @@ function applyPaletteZones(char: CharacterInstance, presets: PartPreset[]): void
   newTex.minFilter = THREE.NearestFilter;
   newTex.colorSpace = THREE.SRGBColorSpace;
 
+  // FBXLoader creates MeshPhongMaterial — apply texture to ANY material type
   if (char.mesh?.material) {
-    const mat = Array.isArray(char.mesh.material) ? char.mesh.material[0] : char.mesh.material;
-    if ((mat as THREE.MeshStandardMaterial).isMeshStandardMaterial) {
-      (mat as THREE.MeshStandardMaterial).map = newTex;
-      (mat as THREE.MeshStandardMaterial).needsUpdate = true;
+    const applyTex = (m: THREE.Material) => {
+      (m as any).map = newTex;
+      (m as any).needsUpdate = true;
+    };
+    if (Array.isArray(char.mesh.material)) {
+      char.mesh.material.forEach(applyTex);
+    } else {
+      applyTex(char.mesh.material);
     }
   }
   char.paletteTexture = newTex;

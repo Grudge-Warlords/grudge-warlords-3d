@@ -121,12 +121,17 @@ export async function loadCharacter(characterId: number): Promise<CharacterInsta
       child.castShadow = true;
       child.receiveShadow = true;
 
-      // Apply palette texture
+      // FBXLoader produces MeshPhongMaterial — convert to MeshStandardMaterial
+      // and apply palette texture to ALL material types
+      const applyTex = (m: THREE.Material) => {
+        (m as any).map = palette;
+        (m as any).needsUpdate = true;
+      };
       if (skinnedMesh.material) {
-        const mat = Array.isArray(skinnedMesh.material) ? skinnedMesh.material[0] : skinnedMesh.material;
-        if (mat && (mat as THREE.MeshStandardMaterial).isMeshStandardMaterial) {
-          (mat as THREE.MeshStandardMaterial).map = palette;
-          (mat as THREE.MeshStandardMaterial).needsUpdate = true;
+        if (Array.isArray(skinnedMesh.material)) {
+          skinnedMesh.material.forEach(applyTex);
+        } else {
+          applyTex(skinnedMesh.material);
         }
       }
     }
