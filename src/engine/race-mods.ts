@@ -108,8 +108,8 @@ export function applyRace(character: CharacterInstance, race: string): void {
   const config = RACE_CONFIGS[race];
   if (!config) return;
 
-  // 1. Overall scale
-  character.group.scale.setScalar(0.01 * config.scale);
+  // 1. Overall scale — multiply the auto-calculated scale, don't override it
+  character.group.scale.multiplyScalar(config.scale);
 
   // 2. Bone-specific scaling
   if (character.skeleton) {

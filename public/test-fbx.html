@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html><head><title>FBX Test</title>
+<style>body{margin:0;background:#111;color:#fff;font-family:monospace}
+#log{position:fixed;top:0;left:0;padding:8px;font-size:12px;z-index:10;background:rgba(0,0,0,0.8);max-height:50%;overflow:auto;width:100%}</style>
+</head><body>
+<div id="log"></div>
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.183.1/build/three.module.js","three/examples/jsm/":"https://unpkg.com/three@0.183.1/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+
+const log = (msg) => { 
+  document.getElementById('log').innerHTML += msg + '<br>'; 
+  console.log(msg); 
+};
+
+log('Starting FBX test...');
+
+// Setup
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x222233);
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+const light = new THREE.DirectionalLight(0xffffff, 2);
+light.position.set(3, 5, 4);
+scene.add(light);
+scene.add(new THREE.GridHelper(10, 10));
+
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 1000);
+camera.position.set(0, 2, 5);
+camera.lookAt(0, 1, 0);
+
+// Load texture
+const texLoader = new THREE.TextureLoader();
+const palettePath = '/assets/models/voxel-rpg/Content/Textures/DungeonCrawler_Character.png';
+log('Loading palette: ' + palettePath);
+
+texLoader.load(palettePath, (tex) => {
+  log('✅ Palette loaded: ' + tex.image.width + 'x' + tex.image.height);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.NearestFilter;
+
+  // Load FBX
+  const fbxPath = '/assets/models/voxel-rpg/Content/Characters/DungeonCrawler_Character.fbx';
+  log('Loading FBX: ' + fbxPath);
+  
+  const loader = new FBXLoader();
+  loader.load(fbxPath, (fbx) => {
+    log('✅ FBX loaded!');
+    log('  Children: ' + fbx.children.length);
+    log('  Animations: ' + fbx.animations.length);
+    
+    // Inspect structure
+    fbx.traverse((child) => {
+      if (child.isMesh || child.isSkinnedMesh) {
+        log('  MESH: ' + child.name + ' (skinned=' + !!child.isSkinnedMesh + ')');
+        log('    Geometry verts: ' + (child.geometry?.attributes?.position?.count || 0));
+        const mat = child.material;
+        if (Array.isArray(mat)) {
+          mat.forEach((m,i) => log('    Material['+i+']: ' + m.type));
+        } else {
+          log('    Material: ' + mat.type);
+          log('    Has map: ' + !!mat.map);
+        }
+        // Apply palette
+        if (Array.isArray(mat)) {
+          mat.forEach(m => { m.map = tex; m.needsUpdate = true; });
+        } else {
+          mat.map = tex;
+          mat.needsUpdate = true;
+        }
+        if (child.isSkinnedMesh && child.skeleton) {
+          log('    Skeleton bones: ' + child.skeleton.bones.length);
+          log('    Bone names: ' + child.skeleton.bones.slice(0,5).map(b=>b.name).join(', ') + '...');
+        }
+      }
+      if (child.isBone && !child.parent?.isBone) {
+        log('  ROOT BONE: ' + child.name);
+      }
+    });
+
+    // Try different scales
+    const bbox = new THREE.Box3().setFromObject(fbx);
+    const size = bbox.getSize(new THREE.Vector3());
+    const center = bbox.getCenter(new THREE.Vector3());
+    log('  BBox size: ' + size.x.toFixed(1) + ' x ' + size.y.toFixed(1) + ' x ' + size.z.toFixed(1));
+    log('  BBox center: ' + center.x.toFixed(1) + ', ' + center.y.toFixed(1) + ', ' + center.z.toFixed(1));
+
+    // Scale to fit ~2 units tall
+    const targetHeight = 2;
+    const scaleFactor = targetHeight / size.y;
+    fbx.scale.setScalar(scaleFactor);
+    log('  Applied scale: ' + scaleFactor.toFixed(4));
+    
+    // Center on ground
+    fbx.position.y = -(center.y * scaleFactor) + targetHeight/2;
+    
+    scene.add(fbx);
+    log('✅ Added to scene — should be visible!');
+
+    // Play animation if available
+    if (fbx.animations.length > 0) {
+      const mixer = new THREE.AnimationMixer(fbx);
+      mixer.clipAction(fbx.animations[0]).play();
+      log('▶ Playing animation: ' + fbx.animations[0].name);
+      
+      const clock = new THREE.Clock();
+      const animate = () => {
+        requestAnimationFrame(animate);
+        mixer.update(clock.getDelta());
+        fbx.rotation.y += 0.005;
+        renderer.render(scene, camera);
+      };
+      animate();
+    } else {
+      const animate = () => {
+        requestAnimationFrame(animate);
+        fbx.rotation.y += 0.005;
+        renderer.render(scene, camera);
+      };
+      animate();
+    }
+  }, 
+  (progress) => {
+    if (progress.total) log('Loading: ' + Math.round(progress.loaded/progress.total*100) + '%');
+  },
+  (err) => {
+    log('❌ FBX LOAD ERROR: ' + err.message);
+    console.error(err);
+  });
+}, undefined, (err) => {
+  log('❌ TEXTURE LOAD ERROR: ' + err.message);
+});
+
+// Fallback render loop
+renderer.render(scene, camera);
+</script>
+</body></html>

@@ -107,9 +107,6 @@ export async function loadCharacter(characterId: number): Promise<CharacterInsta
     }, undefined, reject);
   });
 
-  // Scale to world units
-  group.scale.setScalar(0.01);
-
   // Find skinned mesh and apply palette texture
   let skeleton: THREE.Skeleton | null = null;
   let skinnedMesh: THREE.SkinnedMesh | null = null;
@@ -121,8 +118,7 @@ export async function loadCharacter(characterId: number): Promise<CharacterInsta
       child.castShadow = true;
       child.receiveShadow = true;
 
-      // FBXLoader produces MeshPhongMaterial — convert to MeshStandardMaterial
-      // and apply palette texture to ALL material types
+      // FBXLoader produces MeshPhongMaterial — apply palette texture to ANY material type
       const applyTex = (m: THREE.Material) => {
         (m as any).map = palette;
         (m as any).needsUpdate = true;
@@ -136,6 +132,20 @@ export async function loadCharacter(characterId: number): Promise<CharacterInsta
       }
     }
   });
+
+  // Auto-scale using bounding box — FBX units vary (cm, inches, etc.)
+  const bbox = new THREE.Box3().setFromObject(group);
+  const size = bbox.getSize(new THREE.Vector3());
+  const center = bbox.getCenter(new THREE.Vector3());
+  const targetHeight = 1.8; // ~human height in world units
+  if (size.y > 0) {
+    const scaleFactor = targetHeight / size.y;
+    group.scale.setScalar(scaleFactor);
+    // Shift so feet are at y=0
+    group.position.y = -(center.y * scaleFactor) + targetHeight / 2;
+  } else {
+    group.scale.setScalar(0.01); // fallback
+  }
 
   const mixer = new THREE.AnimationMixer(group);
 
