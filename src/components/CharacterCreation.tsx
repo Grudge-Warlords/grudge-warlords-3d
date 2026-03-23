@@ -136,105 +136,108 @@ export default function CharacterCreation({ onCreate }: CharacterCreationProps) 
     mixer: THREE.AnimationMixer | null;
   } | null>(null);
 
-  // ── 3D Preview Setup — deferred until preview is visible ────
+  // ── 3D Preview — init once, persist across steps ────────────
 
-  const sceneReady = useRef(false);
+  const [sceneReady, setSceneReady] = useState(false);
 
+  // Try to init the 3D scene whenever the preview container might become visible
   useEffect(() => {
+    if (sceneReady || sceneState.current) return;
     const container = previewRef.current;
-    if (!container || sceneReady.current) return;
+    if (!container) return;
 
-    // Don't init when container is hidden (faction step)
-    const w = container.clientWidth;
-    const h = container.clientHeight;
-    if (w < 10 || h < 10) return;
+    // Wait for layout — container needs real dimensions
+    const tryInit = () => {
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      if (w < 10 || h < 10) return false;
 
-    sceneReady.current = true;
+      let renderer: THREE.WebGLRenderer;
+      try {
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      } catch (e) {
+        console.warn('[CharCreate] WebGL failed:', e);
+        return false;
+      }
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(w, h);
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.1;
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      container.appendChild(renderer.domElement);
 
-    let renderer: THREE.WebGLRenderer;
-    try {
-      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    } catch (e) {
-      console.warn('[CharCreate] WebGL init failed:', e);
-      return;
-    }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(w, h);
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    container.appendChild(renderer.domElement);
+      const scene = new THREE.Scene();
+      scene.add(new THREE.AmbientLight(0x334455, 0.6));
+      const key = new THREE.DirectionalLight(0xffeedd, 2.5);
+      key.position.set(2, 5, 4);
+      scene.add(key);
+      const fill = new THREE.DirectionalLight(0x4466aa, 0.8);
+      fill.position.set(-3, 3, -2);
+      scene.add(fill);
+      const rim = new THREE.DirectionalLight(0xc5a059, 1.2);
+      rim.position.set(0, 2, -5);
+      scene.add(rim);
+      scene.add(new THREE.HemisphereLight(0x223344, 0x111122, 0.4));
 
-    const scene = new THREE.Scene();
-    scene.add(new THREE.AmbientLight(0x334455, 0.6));
-    const key = new THREE.DirectionalLight(0xffeedd, 2.5);
-    key.position.set(2, 5, 4);
-    scene.add(key);
-    const fill = new THREE.DirectionalLight(0x4466aa, 0.8);
-    fill.position.set(-3, 3, -2);
-    scene.add(fill);
-    const rim = new THREE.DirectionalLight(0xc5a059, 1.2);
-    rim.position.set(0, 2, -5);
-    scene.add(rim);
-    scene.add(new THREE.HemisphereLight(0x223344, 0x111122, 0.4));
+      const ground = new THREE.Mesh(
+        new THREE.CircleGeometry(2.5, 64),
+        new THREE.MeshStandardMaterial({ color: 0x0a0a14, roughness: 0.98 }),
+      );
+      ground.rotation.x = -Math.PI / 2;
+      ground.position.y = -0.01;
+      scene.add(ground);
 
-    const ground = new THREE.Mesh(
-      new THREE.CircleGeometry(2.5, 64),
-      new THREE.MeshStandardMaterial({ color: 0x0a0a14, roughness: 0.98 }),
-    );
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.01;
-    scene.add(ground);
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(1.8, 1.85, 64),
+        new THREE.MeshBasicMaterial({ color: 0xc5a059, transparent: true, opacity: 0.15, side: THREE.DoubleSide }),
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.001;
+      scene.add(ring);
 
-    const ring = new THREE.Mesh(
-      new THREE.RingGeometry(1.8, 1.85, 64),
-      new THREE.MeshBasicMaterial({ color: 0xc5a059, transparent: true, opacity: 0.15, side: THREE.DoubleSide }),
-    );
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.y = 0.001;
-    scene.add(ring);
+      const camera = new THREE.PerspectiveCamera(28, w / h, 0.1, 100);
+      camera.position.set(0, 1.1, 4.2);
+      camera.lookAt(0, 0.7, 0);
 
-    const camera = new THREE.PerspectiveCamera(28, w / h, 0.1, 100);
-    camera.position.set(0, 1.1, 4.2);
-    camera.lookAt(0, 0.7, 0);
+      let lastTime = performance.now();
+      const state = {
+        renderer, scene, camera, animId: 0,
+        char: null as CharacterInstance | null,
+        mixer: null as THREE.AnimationMixer | null,
+      };
+      sceneState.current = state;
 
-    let lastTime = performance.now();
-    const state = {
-      renderer, scene, camera, animId: 0,
-      char: null as CharacterInstance | null,
-      mixer: null as THREE.AnimationMixer | null,
-    };
-    sceneState.current = state;
-
-    const loop = () => {
-      const now = performance.now();
-      const dt = Math.min((now - lastTime) / 1000, 0.05);
-      lastTime = now;
-      if (state.mixer) state.mixer.update(dt);
-      if (state.char) state.char.group.rotation.y += dt * 0.3;
-      renderer.render(scene, camera);
+      const loop = () => {
+        const now = performance.now();
+        const dt = Math.min((now - lastTime) / 1000, 0.05);
+        lastTime = now;
+        if (state.mixer) state.mixer.update(dt);
+        if (state.char) state.char.group.rotation.y += dt * 0.3;
+        renderer.render(scene, camera);
+        state.animId = requestAnimationFrame(loop);
+      };
       state.animId = requestAnimationFrame(loop);
-    };
-    state.animId = requestAnimationFrame(loop);
 
-    const onResize = () => {
-      const nw = container.clientWidth;
-      const nh = container.clientHeight;
-      if (nw < 10 || nh < 10) return;
-      camera.aspect = nw / nh;
-      camera.updateProjectionMatrix();
-      renderer.setSize(nw, nh);
-    };
-    window.addEventListener('resize', onResize);
+      const onResize = () => {
+        const nw = container.clientWidth;
+        const nh = container.clientHeight;
+        if (nw < 10 || nh < 10) return;
+        camera.aspect = nw / nh;
+        camera.updateProjectionMatrix();
+        renderer.setSize(nw, nh);
+      };
+      window.addEventListener('resize', onResize);
 
-    return () => {
-      cancelAnimationFrame(state.animId);
-      window.removeEventListener('resize', onResize);
-      renderer.dispose();
-      container.innerHTML = '';
-      sceneReady.current = false;
+      setSceneReady(true);
+      return true;
     };
-  }, [step]); // re-run when step changes so it inits when preview becomes visible
+
+    // Try immediately, then retry after a frame (layout might not be ready)
+    if (!tryInit()) {
+      const raf = requestAnimationFrame(() => tryInit());
+      return () => cancelAnimationFrame(raf);
+    }
+  }, [step, sceneReady]); // re-check when step changes (container becomes visible)
 
   // ── Available bodies for current race ──────────────────────
 
@@ -298,7 +301,8 @@ export default function CharacterCreation({ onCreate }: CharacterCreationProps) 
     }
   }, [race, currentBodyDef.id, buildIdx, faceIdx, skinIdx, hairIdx, eyeIdx, heroClass]);
 
-  useEffect(() => { if (race) rebuildCharacter(); }, [rebuildCharacter, race]);
+  // Rebuild character when customization changes OR when scene first becomes ready
+  useEffect(() => { if (race && sceneReady) rebuildCharacter(); }, [rebuildCharacter, race, sceneReady]);
 
   useEffect(() => {
     if (race) {
