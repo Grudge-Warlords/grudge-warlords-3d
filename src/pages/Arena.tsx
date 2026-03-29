@@ -97,16 +97,18 @@ export default function Arena() {
   const [mode, setMode] = useState<'lobby' | 'playing'>('lobby');
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  const char = (() => {
+  const [char] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('grudge3d_character') || 'null');
-    } catch { return null; }
-  })();
+    } catch {
+      return null;
+    }
+  });
 
   useEffect(() => {
     if (!char) return;
     syncCharacterToDCQ(char);
-  }, []);
+  }, [char]);
 
   if (mode === 'playing') {
     return (
