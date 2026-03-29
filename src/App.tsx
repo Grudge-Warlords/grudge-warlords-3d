@@ -183,6 +183,7 @@ function GameWorld({ character }: { character: CharacterData }) {
       setLoading(false);
 
       // Attach class starting weapons (non-fatal — capsule never shown if only this fails)
+      if (!container.isConnected) return;
       try {
         await equipClassStartingWeapons(charInstance, character.heroClass);
       } catch (e) {
@@ -190,6 +191,7 @@ function GameWorld({ character }: { character: CharacterData }) {
       }
 
       // Wire animations (non-fatal)
+      if (!container.isConnected) return;
       try {
         const animComp = player.getComponent(AnimationComponent)!;
         await setupCharacterAnimations(charInstance, character.heroClass, animComp);
