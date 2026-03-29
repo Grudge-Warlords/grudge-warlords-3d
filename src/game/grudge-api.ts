@@ -173,7 +173,7 @@ export async function loadCharacterFromBackend(): Promise<BackendCharacter | nul
       const match = chars.find(c => String(c.id) === savedId);
       if (match) return match;
     }
-    return chars[0];
+    return chars.reduce((latest, current) => current.id > latest.id ? current : latest);
   } catch {
     return null;
   }
