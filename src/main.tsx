@@ -6,6 +6,7 @@ const ToonAdmin = lazy(() => import('./pages/ToonAdmin'));
 const Arena = lazy(() => import('./pages/Arena'));
 const BabylonPlayground = lazy(() => import('./pages/BabylonPlayground'));
 const RetargetPage = lazy(() => import('./pages/RetargetPage'));
+const RTSPage = lazy(() => import('./pages/RTSPage'));
 
 const LOADING_SCREEN = (
   <div style={{
@@ -52,6 +53,14 @@ function Root() {
     return (
       <Suspense fallback={LOADING_SCREEN}>
         <RetargetPage />
+      </Suspense>
+    );
+  }
+
+  if (path === '/rts') {
+    return (
+      <Suspense fallback={LOADING_SCREEN}>
+        <RTSPage />
       </Suspense>
     );
   }
