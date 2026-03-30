@@ -7,6 +7,7 @@ const Arena = lazy(() => import('./pages/Arena'));
 const BabylonPlayground = lazy(() => import('./pages/BabylonPlayground'));
 const RetargetPage = lazy(() => import('./pages/RetargetPage'));
 const RTSPage = lazy(() => import('./pages/RTSPage'));
+const ThirdPersonPage = lazy(() => import('./pages/ThirdPersonPage'));
 
 const LOADING_SCREEN = (
   <div style={{
@@ -61,6 +62,14 @@ function Root() {
     return (
       <Suspense fallback={LOADING_SCREEN}>
         <RTSPage />
+      </Suspense>
+    );
+  }
+
+  if (path === '/thirdperson') {
+    return (
+      <Suspense fallback={LOADING_SCREEN}>
+        <ThirdPersonPage />
       </Suspense>
     );
   }
