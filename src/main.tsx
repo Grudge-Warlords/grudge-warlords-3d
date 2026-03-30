@@ -5,6 +5,7 @@ import App from './App';
 const ToonAdmin = lazy(() => import('./pages/ToonAdmin'));
 const Arena = lazy(() => import('./pages/Arena'));
 const BabylonPlayground = lazy(() => import('./pages/BabylonPlayground'));
+const RetargetPage = lazy(() => import('./pages/RetargetPage'));
 
 const LOADING_SCREEN = (
   <div style={{
@@ -43,6 +44,14 @@ function Root() {
     return (
       <Suspense fallback={LOADING_SCREEN}>
         <BabylonPlayground />
+      </Suspense>
+    );
+  }
+
+  if (path === '/retarget') {
+    return (
+      <Suspense fallback={LOADING_SCREEN}>
+        <RetargetPage />
       </Suspense>
     );
   }
